@@ -42,7 +42,7 @@ class StartCore:
                     pass
 
             if user_action == 'QUIT':
-                print(InputContainer)
+                print(core.quote_list)
                 break
 
             if user_action == 'VIEW ORDERS':

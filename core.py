@@ -74,6 +74,8 @@ class BirzhaCore:
             ('SELL', 'MKT'): None
         }
 
+        self.quote_list = []
+
     def command_maker(self,  command: InputContainer):
         """
         Вызываем тип действия на основе полученных данных
@@ -81,7 +83,8 @@ class BirzhaCore:
         action = (command.user_action, command.order_type)
 
         if action in self.trade_actions:
-            self.trade_actions[action](command.quote, command.price, command.count)
+            res = self.trade_actions[action](command.quote, command.price, command.count)
+            self.quote_list.append(res)
         else:
             print('Error')
 

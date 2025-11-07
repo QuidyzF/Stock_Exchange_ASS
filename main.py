@@ -52,8 +52,7 @@ class StartCore:
                 command = self.info_parser(formated_user_input)
                 print(command)
                 if command:
-                    result = self.core.command_maker(command)
-                    print(result)
+                    self.core.command_maker(command)
                 else:
                     print('Unknown command')
 

@@ -86,9 +86,11 @@ class BirzhaCore:
             print('Error')
 
     def add_orded_BUY_LMT(self, quote, price, count):
-        Container.market_type = 'BUY'
-        Container.order_type = 'LMT'
-        Container.quote = quote
-        Container.price = price
-        Container.quantity = count
-        return Container
+        new_order = Container(
+            market_type='BUY',
+            order_type='LMT',
+            quote=quote,
+            price=price,
+            quantity=count
+        )
+        return new_order

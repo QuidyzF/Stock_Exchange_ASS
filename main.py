@@ -1,7 +1,14 @@
-from dataclasses import dataclass, field
 import itertools
+from dataclasses import dataclass, field
 
-from mypy.dmypy.client import action
+#Декоратор для отладки
+def debugger(func):
+    def wrapper(*args, **kwargs):
+        class_name = args[0].__class__.__name__
+        print(f'DEBUG: {class_name}({func.__name__})')
+        print(f'args: {args}')
+        return func(*args, **kwargs)
+    return wrapper
 
 # простой вариант счетчика
 _id_counter = itertools.count(1)
@@ -31,7 +38,7 @@ class Order:
         if self.order_kind == 'MKT' and self.price is not None:
             raise ValueError("Для рыночной заявки цена не нужна.")
 
-    def  get_quantity(self) -> int:
+    def get_quantity(self) -> int:
         return self.quantity - self.filled_quantity
 
     def filling_update(self, new_quantity):
@@ -70,15 +77,24 @@ class OrderBook:
         # Сортируем завки на продажу ( LOW to HIGH )
         self.asks.sort(key=lambda x: x.price)
 
-    def get_qoute(self):
+    def get_quote(self):
         best_bid = self.bids[0].price
         best_ask = self.asks[0].price
         return best_bid, best_ask, self.last_trade_price
+
+    @debugger
+    def _match_fill_update(self, new_order, counter_orders, price_check):
+        quantity_to_close_order = new_order.get_quantity()
+
+        for i, counter_order in enumerate(counter_orders):
+            if quantity_to_close_order <= 0:
+                break
 
 
 
 class Exchange:
     """Главное управление всей биржей. Команды пользователя и хранит историю сделок/статусы заявок"""
+
     pass
 
 class Parser:
@@ -94,41 +110,62 @@ class Parser:
         print('SEASS started. QUIT for exit')
 
     # Action: BUY SNAP LMT $30 100
-    #         0   1    2   3   4
-    def _command_parser(self, user_input: list):
-        stock = user_input[1]
-        action_type_check = user_input[2]
+    #         нет   0   1   2   3
+    @debugger
+    def _command_parser(self, user_input: list) -> tuple:
+        stock = user_input[0]
+        action_type_check = user_input[1]
 
         if action_type_check == 'LMT':
-            if len(user_input) != 5:
+            if len(user_input) != 4:
                 raise ValueError("Для LMT заявки требуются: Продажа/Покупка, LMT, Цена, Кол-во")
 
-            price_check = user_input[3]
-            if not price.startswith('$'):
+            price_check = user_input[2]
+            if not price_check.startswith('$'):
                 raise ValueError("Цена должна начинаться с '$'.")
 
-            price = float(price_chek.lstrip('$'))
-            quantity = int(user_input[4])
+            price = float(price_check.lstrip('$'))
+            quantity = int(user_input[3])
             action_type = 'LMT'
 
         elif action_type_check == 'MKT':
-            if len(user_input) != 4:
+            if len(user_input) != 3:
                 raise ValueError("Для MKT заявки требуются: Продажа/Покупка, MKT, Кол-во")
 
             price = None
-            quantity = int(user_input[3])
+            quantity = int(user_input[2])
             action_type = 'MKT'
+
+        else:
+            raise ValueError("Указанного вида заявки не существует.")
 
         return stock, action_type, price, quantity
 
-    def trade_command(self, quote, price, count):
-        pass
+    @debugger
+    def trade_command(self, action, parts):
+        try:
+            action = action
+            stock, action_type, price, quantity = self._command_parser(parts)
 
-    def quote_command(self, quote, price, count):
-        pass
+            # Здесь мы относимся к классу Exchange и выдает информацию.
+            # Action: BUY FB MKT 20
+            # Вы разместили рыночную заявку на покупку 20 акций FB.
+            result = None
 
-    def view_command(self, quote, price, count):
-        pass
+        except ValueError as e:
+            print(f'Ошибка {e}')
+        except TypeError as e:
+            print(f'Ошибка {e}')
+
+    @debugger
+    def quote_command(self, action, parts):
+        stock = parts[0]
+        #Дальше относимся к Exchange с обработкой команды.
+
+    @debugger
+    def view_command(self, action, parts):
+        print(self.OrderBook.get_quote())
+
 
     def run(self):
         while True:
@@ -137,10 +174,11 @@ class Parser:
                 continue
 
             action = user_input[0]
+            parts = user_input[1:]
             if action in self.commands:
                 if action == 'QUIT':
                     return
-                self.commands[action](user_input)
+                self.commands[action](action, parts)
             else:
                 print(f"Неизвестная команда: {action}.")
 

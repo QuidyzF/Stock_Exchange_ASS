@@ -1,0 +1,1 @@
+This is project created practice and learning Python language and GIT repoes.

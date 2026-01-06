@@ -1,0 +1,140 @@
+@startuml
+title Диаграмма работы биржевой системы
+
+actor Пользователь
+participant "Parser" as P
+participant "Exchange" as E
+participant "OrderBook(FB)" as OB
+participant "Order" as O
+
+== Команда 1: BUY FB MKT 20 ==
+
+Пользователь -> P: BUY FB MKT 20
+activate P
+P -> P: run()
+P -> P: trade_command("BUY", ["FB", "MKT", "20"])
+activate P
+P -> P: _command_parser(["FB", "MKT", "20"])
+note right: Результат: stock='FB'\naction_type='MKT'\nprice=None\nquantity=20
+P -> E: place_order("BUY", "FB", "MKT", None, 20)
+deactivate P
+activate E
+
+create O
+E -> O: Order(stock='FB', action='BUY',\naction_type='MKT', price=None, quantity=20)
+activate O
+O -> O: __post_init__()
+note right: id=1 (из itertools.count)\nstatus='PENDING'
+O --> E: order объект
+deactivate O
+
+E -> E: orders_list[1] = order
+E -> E: _get_or_create_order("FB")
+activate E
+
+create OB
+E -> OB: OrderBook("FB")
+OB --> E: book
+deactivate E
+
+E -> OB: process_order(order)
+activate OB
+OB -> OB: order_book = self.asks
+note right: Ищем встречные\nSELL заявки
+OB -> OB: _book_updater(order, asks, price_check)
+note right: asks = []\nНичего не найдено
+OB -> OB: bids.append(order)
+note right: Заявка остается\nв ожидании
+deactivate OB
+
+E --> P: "Вы разместили рыночную заявку\nна покупку 20 акций FB."
+deactivate E
+P --> Пользователь: Вывод сообщения
+deactivate P
+
+== Команда 2: SELL FB LMT $20.00 20 ==
+
+Пользователь -> P: SELL FB LMT $20.00 20
+activate P
+P -> P: run()
+P -> P: trade_command("SELL", ["FB", "LMT", "$20.00", "20"])
+activate P
+P -> P: _command_parser(["FB", "LMT", "$20.00", "20"])
+note right: Результат: stock='FB'\naction_type='LMT'\nprice=20.0\nquantity=20
+P -> E: place_order("SELL", "FB", "LMT", 20.0, 20)
+deactivate P
+activate E
+
+create O
+E -> O: Order(stock='FB', action='SELL',\naction_type='LMT', price=20.0, quantity=20)
+activate O
+O -> O: __post_init__()
+note right: id=2\nstatus='PENDING'
+O --> E: order объект
+deactivate O
+
+E -> E: orders_list[2] = order
+E -> E: _get_or_create_order("FB")
+activate E
+E --> E: существующий OrderBook
+deactivate E
+
+E -> OB: process_order(order)
+activate OB
+OB -> OB: order_book = self.bids
+note right: Ищем встречные\nBUY заявки
+OB -> OB: _book_updater(order, bids, price_check)
+activate OB
+note right: Найден BUY order (id=1)\nMKT заявка принимает\nлюбую цену
+
+loop Для каждой встречной заявки
+    OB -> OB: filling_quantity = min(20, 20) = 20
+    OB -> OB: trade_price = counter_order.price = 20.0\n(цена LMT заявки)
+
+    OB -> O: new_order.filling_update(20)
+    activate O
+    O -> O: filled_quantity = 20\nstatus = 'FILLED'
+    deactivate O
+
+    OB -> O: counter_order.filling_update(20)
+    activate O
+    O -> O: filled_quantity = 20\nstatus = 'FILLED'
+    deactivate O
+
+    OB -> OB: last_trade_price = 20.0
+end
+
+note right: Обе заявки полностью\nисполнены
+deactivate OB
+deactivate OB
+
+E --> P: "Вы разместили лимитную заявку\nна продажу 20 акций FB по цене $20.0 за штуку."
+deactivate E
+P --> Пользователь: Вывод сообщения
+deactivate P
+
+== Команда 3: VIEW ORDERS ==
+
+Пользователь -> P: VIEW ORDERS
+activate P
+P -> P: run()
+P -> P: view_command("VIEW", ["ORDERS"])
+activate P
+P -> E: view_orders()
+deactivate P
+activate E
+
+E -> E: sorted(orders_list.values(), key=lambda x: x.id)
+note right: Сортировка по id
+
+loop Для каждой заявки
+    E -> E: Форматирование строки
+    note right: 1. FB MKT BUY $None 20 20/20 FILLED\n2. FB LMT SELL $20.0 20 20/20 FILLED
+end
+
+E --> P: "1. FB MKT BUY $None 20 20/20 FILLED\n2. FB LMT SELL $20.0 20 20/20 FILLED"
+deactivate E
+P --> Пользователь: Вывод списка заявок
+deactivate P
+
+@enduml

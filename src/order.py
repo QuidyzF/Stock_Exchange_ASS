@@ -8,14 +8,14 @@ _id_counter = itertools.count(1)
 @dataclass
 class Order:
     """Класс Заявок, хранит детали"""
-    id: int = field(init=False) # на 30 строку посмотри
+    id: int = field(init=False) # --> __post_init__
     stock: str # stock name
     action: str # BUY | SELL
     action_type: str # LMT | MKT
     quantity: int # Count of action
     price: float | None = None # Price of action
-    execution_price: float | None = None # for MKT trade
 
+    execution_price: float | None = None # for MKT trade
     filled_quantity: int = 0 # Quantity counter for status
     status: str = 'PENDING'
 

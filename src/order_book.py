@@ -16,10 +16,11 @@ class OrderBook:
         self.asks.sort(key=lambda x: x.price if x.price is not None else 0)
 
     def get_quote(self):
+        self._sort_books()
         # Запрашиваем лучшую заявку на покупку
-        best_bid = self.bids[0].price
+        best_bid = self.bids[0].price if self.bids[0].price else None
         # Запрашиваем лучшую заявку на продажу
-        best_ask = self.asks[0].price
+        best_ask = self.asks[0].price if self.asks[0].price else None
         # Возвращаем данные - [покупка, продажа, последняя цена]
         return best_bid, best_ask, self.last_trade_price
 
@@ -35,6 +36,8 @@ class OrderBook:
                     break
 
             filling_quantity_in_this_action = min(quantity_to_close_order, counter_order.get_quantity())
+            if filling_quantity_in_this_action <= 0:
+                continue
 
             if counter_order.action_type == 'LMT':
                 trade_price = counter_order.price
@@ -69,5 +72,6 @@ class OrderBook:
         self._book_updater(order, order_book, price_check)
         # Проверяем статус акции, если она не является полной -> кладём в стакан с ожидающими
 
-        remaining_book.append(order)
-        self._sort_books()
+        if order.get_quantity() > 0:
+            remaining_book.append(order)
+            self._sort_books()

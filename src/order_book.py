@@ -70,8 +70,8 @@ class OrderBook:
 
         # Пытаемся обновить состояние акции
         self._book_updater(order, order_book, price_check)
-        # Проверяем статус акции, если она не является полной -> кладём в стакан с ожидающими
 
+        # Проверяем статус акции, если она не является полной -> кладём в стакан с ожидающими
         if order.get_quantity() > 0:
             remaining_book.append(order)
             self._sort_books()

@@ -3,7 +3,6 @@ from src.exchange import Exchange
 from src.parser import Parser
 
 
-@pytest.mark.integration
 def test_full_scenario(capsys):
     """Checking the example from the task"""
     core = Exchange()

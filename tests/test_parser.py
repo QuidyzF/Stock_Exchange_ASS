@@ -116,7 +116,6 @@ class TestQuoteCommand:
         assert "SNAP BID: $30.0 ASK: $31.0 LAST: $32.0" in capsys.readouterr().out
 
     def test_get_quote_empty_book(self):
-        """Тест проверяет поведение системы, когда в стакане нет заявок"""
         book = OrderBook("SNAP")
         bid, ask, last = book.get_quote()
         assert bid is None

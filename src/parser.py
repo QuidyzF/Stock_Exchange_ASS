@@ -1,4 +1,5 @@
 from src.exchange import Exchange
+from src.order import Order, ActionType, OrderType
 
 class Parser:
     """Парсинг входных данных и передача в главный орган"""
@@ -24,12 +25,12 @@ class Parser:
 
                 price = float(price_str.lstrip('$'))
                 quantity = int(quantity_str)
-                return stock, "LMT", price, quantity
+                return stock, ActionType.LIMIT, price, quantity
 
             case ["MKT", quantity_str]:
                 self._int_check(quantity_str)
                 quantity = int(quantity_str)
-                return stock, "MKT", None, quantity
+                return stock, ActionType.MARKET, None, quantity
 
             case ["LMT", *another]:
                 raise ValueError("Для LMT заявки требуются: Продажа/Покупка, LMT, Цена, Кол-во")
@@ -42,27 +43,33 @@ class Parser:
 
     def trade_command(self, action, parts):
         try:
-            action = action
+            action_enum = OrderType[action]
             stock, action_type, price, quantity = self._command_parser(parts)
 
-            order = self.core.place_order(action, stock, action_type, price, quantity)
-
-            buy_type = "покупку" if order.action == "BUY" else "продажу"
-            if action_type == 'LMT':
+            order = self.core.place_order(action_enum, stock, action_type, price, quantity)
+            print(order.action, order.stock, order.action_type, order.price, order.quantity)
+            buy_type = "покупку" if order.action == OrderType.BUY else "продажу"
+            if action_type == ActionType.LIMIT:
                 msg = f"Вы разместили лимитную заявку на {buy_type} {order.quantity} акций {order.stock} по цене ${order.price} за штуку."
             else:
                 msg = f"Вы разместили рыночную заявку на {buy_type} {order.quantity} акций {order.stock}."
 
             print(msg)
-        except ValueError as e:
-            print(f'Ошибка - {e}')
-        except TypeError as e:
+        except (ValueError, TypeError) as e:
             print(f'Ошибка - {e}')
 
     def quote_command(self, action, parts):
         stock = parts[0]
-        best_bid, best_ask, last_trade_price = self.core.books[stock].get_quote()
-        print(f"SNAP BID: ${float(best_bid)} ASK: ${float(best_ask)} LAST: ${float(last_trade_price)}")
+        if stock not in self.core.books:
+            print(f"Акция - {stock}. Сейчас отсутствует на рынке.")
+            return
+        bid, ask, last_trade_price = self.core.books[stock].get_quote()
+
+        bid_str = float(bid) if bid is not None else "0.0"
+        ask_str = float(ask) if ask is not None else "0.0"
+        last_trade_price = float(last_trade_price) if last_trade_price is not None else "0.0"
+
+        print(f"SNAP BID: ${bid_str} ASK: ${ask_str} LAST: ${last_trade_price}")
 
     def view_command(self, action, parts):
         if len(parts) == 1 and action == 'VIEW' and parts[0] == 'ORDERS':
@@ -74,7 +81,7 @@ class Parser:
 
             for i, order in enumerate(sorted_list, 1):
                 price = order.execution_price if order.execution_price else order.price
-                line = f'{i}. {order.stock} {order.action_type} {order.action} ${price} {order.quantity} {order.filled_quantity}/{order.quantity} {order.status}'
+                line = f'{i}. {order.stock} {order.action_type.value} {order.action.value} ${price} {order.quantity} {order.filled_quantity}/{order.quantity} {order.status.value}'
                 output.append(line)
             msg = '\n'.join(output)
             print(msg)

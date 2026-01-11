@@ -1,4 +1,4 @@
-from src.order import Order
+from src.order import Order, OrderType
 from src.order_book import OrderBook
 
 class Exchange:

@@ -1,5 +1,5 @@
 import pytest
-from src.order import Order
+from src.order import Order, ActionType, OrderType, OrderStatus
 from tests.conftest import valid_SELL_LMT_order, valid_BUY_LMT_order, valid_SELL_MKT_order
 
 
@@ -8,20 +8,20 @@ class TestMarketOrderCreation:
     def test_create_MKT_order(self, valid_BUY_MKT_order):
         """Проверка валидности созданного заказа"""
         assert valid_BUY_MKT_order.stock == "SNAP"
-        assert valid_BUY_MKT_order.action == "BUY"
-        assert valid_BUY_MKT_order.action_type == "MKT"
+        assert valid_BUY_MKT_order.action == OrderType.BUY
+        assert valid_BUY_MKT_order.action_type == ActionType.MARKET
         assert valid_BUY_MKT_order.quantity == 100
         assert valid_BUY_MKT_order.price is None
 
     def test_has_unique_id(self):
         """Каждый ордер имеет уникальный id"""
-        order_1 = Order(stock="SNAP", action="BUY", action_type="MKT", quantity=100)
-        order_2 = Order(stock="SNAP", action="BUY", action_type="MKT", quantity=100)
+        order_1 = Order(stock="SNAP", action=OrderType.BUY, action_type=ActionType.MARKET, quantity=100)
+        order_2 = Order(stock="SNAP", action=OrderType.BUY, action_type=ActionType.MARKET, quantity=100)
         assert order_1.id != order_2.id
         assert order_1.id < order_2.id
 
     def test_start_order_status(self, valid_BUY_MKT_order):
-        assert valid_BUY_MKT_order.status == "PENDING"
+        assert valid_BUY_MKT_order.status == OrderStatus.PENDING
 
     def test_start_zero_filled_quantity(self, valid_BUY_MKT_order):
         assert valid_BUY_MKT_order.filled_quantity == 0
@@ -33,39 +33,39 @@ class TestMarketOrderValidation:
     def test_without_price_parameter(self, valid_BUY_MKT_order):
         """MKT не должен принимать цену"""
         with pytest.raises(ValueError):
-            Order(stock="SNAP", action="BUY", action_type="MKT", quantity=100, price=100)
+            Order(stock="SNAP", action=OrderType.BUY, action_type=ActionType.MARKET, quantity=100, price=100)
 
     def test_order_requires_quantity_parameter(self):
         with pytest.raises(TypeError):
-            Order(stock="SNAP", action="BUY", action_type="MKT")
+            Order(stock="SNAP", action=OrderType.BUY, action_type=ActionType.MARKET)
 
     def test_validation_reject_zero_quantity(self):
         with pytest.raises(ValueError):
-            Order(stock="SNAP", action="BUY", action_type="MKT", quantity=0)
+            Order(stock="SNAP", action=OrderType.BUY, action_type=ActionType.MARKET, quantity=0)
 
     def test_validation_reject_negative_quantity(self):
         with pytest.raises(ValueError):
-            Order(stock="SNAP", action="BUY", action_type="MKT", quantity=-100)
+            Order(stock="SNAP", action=OrderType.BUY, action_type=ActionType.MARKET, quantity=-100)
 
 class TestLimitedOrderCreation:
     """Тесты для лимитных ордеров"""
     def test_create_LMT_order(self, valid_BUY_LMT_order):
         """Проверка валидности созданного заказа"""
         assert valid_BUY_LMT_order.stock == "SNAP"
-        assert valid_BUY_LMT_order.action == "BUY"
-        assert valid_BUY_LMT_order.action_type == "LMT"
+        assert valid_BUY_LMT_order.action == OrderType.BUY
+        assert valid_BUY_LMT_order.action_type == ActionType.LIMIT
         assert valid_BUY_LMT_order.quantity == 100
         assert valid_BUY_LMT_order.price is 100
 
     def test_has_unique_id(self):
         """Каждый ордер имеет уникальный id"""
-        order_1 = Order(stock="SNAP", action="BUY", action_type="LMT", quantity=100, price=100)
-        order_2 = Order(stock="SNAP", action="BUY", action_type="LMT", quantity=100, price=100)
+        order_1 = Order(stock="SNAP", action=OrderType.BUY, action_type=ActionType.LIMIT, quantity=100, price=100)
+        order_2 = Order(stock="SNAP", action=OrderType.BUY, action_type=ActionType.LIMIT, quantity=100, price=100)
         assert order_1.id != order_2.id
         assert order_1.id < order_2.id
 
     def test_start_order_status(self, valid_BUY_LMT_order):
-        assert valid_BUY_LMT_order.status == "PENDING"
+        assert valid_BUY_LMT_order.status == OrderStatus.PENDING
 
     def test_start_zero_filled_quantity(self, valid_BUY_LMT_order):
         assert valid_BUY_LMT_order.filled_quantity == 0
@@ -76,15 +76,15 @@ class TestLimitedOrderCreation:
 class TestLimitedOrderValidation:
     def test_requires_price_parameter(self):
         with pytest.raises(ValueError):
-            Order(stock="SNAP", action="BUY", action_type="LMT", quantity=100)
+            Order(stock="SNAP", action=OrderType.BUY, action_type=ActionType.LIMIT, quantity=100)
 
     def test_rejects_zero_price(self):
         with pytest.raises(ValueError):
-            Order(stock="SNAP", action="BUY", action_type="LMT", quantity=100, price=0)
+            Order(stock="SNAP", action=OrderType.BUY, action_type=ActionType.LIMIT, quantity=100, price=0)
 
     def test_rejects_negative_price(self):
         with pytest.raises(ValueError):
-            Order(stock="SNAP", action="BUY", action_type="LMT", quantity=100, price=-100)
+            Order(stock="SNAP", action=OrderType.BUY, action_type=ActionType.LIMIT, quantity=100, price=-100)
 
 class TestLimitedOrderMethods:
     def test_get_quantity_function(self, valid_BUY_LMT_order):
@@ -108,11 +108,11 @@ class TestLimitedOrderMethods:
 
     def test_filling_update_function_partial_status(self, valid_BUY_LMT_order):
         valid_BUY_LMT_order.filling_update(50)
-        assert valid_BUY_LMT_order.status == "PARTIAL"
+        assert valid_BUY_LMT_order.status == OrderStatus.PARTIAL
 
     def test_filling_update_function_filled_status(self, valid_BUY_LMT_order):
         valid_BUY_LMT_order.filling_update(100)
-        assert valid_BUY_LMT_order.status == "FILLED"
+        assert valid_BUY_LMT_order.status == OrderStatus.FILLED
 
     def test_filling_update_function_rejects_zero_parameter(self, valid_BUY_LMT_order):
         with pytest.raises(ValueError):
@@ -123,13 +123,13 @@ class TestLimitedOrderMethods:
             valid_BUY_LMT_order.filling_update(150)
 
     def test_filling_update_status_changing(self, valid_BUY_LMT_order):
-        assert valid_BUY_LMT_order.status == "PENDING"
+        assert valid_BUY_LMT_order.status == OrderStatus.PENDING
 
         valid_BUY_LMT_order.filling_update(30)
-        assert valid_BUY_LMT_order.status == "PARTIAL"
+        assert valid_BUY_LMT_order.status == OrderStatus.PARTIAL
 
         valid_BUY_LMT_order.filling_update(50)
-        assert valid_BUY_LMT_order.status == "PARTIAL"
+        assert valid_BUY_LMT_order.status == OrderStatus.PARTIAL
 
         valid_BUY_LMT_order.filling_update(20)
-        assert valid_BUY_LMT_order.status == "FILLED"
+        assert valid_BUY_LMT_order.status == OrderStatus.FILLED

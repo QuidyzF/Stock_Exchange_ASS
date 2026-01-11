@@ -1,9 +1,9 @@
 import pytest
 from unittest import mock
 from src.parser import Parser
-from src.order import Order
+from src.order import Order, ActionType, OrderType, OrderStatus
 from src.exchange import Exchange
-
+from src.order_book import OrderBook
 
 @pytest.fixture
 def exchange_mock(mocker):
@@ -16,13 +16,13 @@ def parser(exchange_mock):
 def create_mock_order(*args, **kwargs):
     defaults = {
         "stock": "SNAP",
-        "action_type": "LMT",
-        "action": "BUY",
+        "action_type": ActionType.LIMIT,
+        "action": OrderType.BUY,
         "price": 30.0,
         "execution_price": None,
         "quantity": 100,
         "filled_quantity": 100,
-        "status": "FILLED"
+        "status": OrderStatus.PENDING,
     }
     defaults.update(kwargs)
     return mock.Mock(**defaults)
@@ -30,33 +30,33 @@ def create_mock_order(*args, **kwargs):
 class TestTradeCommand:
     @pytest.mark.parametrize('action, parts, expected_order, expected_error', [
         # LMT orders
-        ("BUY", ["SNAP", "LMT", "$30", "100"], ["BUY", "SNAP", "LMT", 30, 100],
+        ("BUY", ["SNAP", "LMT", "$30", "100"], [OrderType.BUY, "SNAP", ActionType.LIMIT, 30, 100],
          None),
-        ("SELL", ["SNAP", "LMT", "$30", "100"], ["SELL", "SNAP", "LMT", 30, 100],
+        ("SELL", ["SNAP", "LMT", "$30", "100"], [OrderType.SELL, "SNAP", ActionType.LIMIT, 30, 100],
          None),
         # MKT orders
-        ("BUY", ["SNAP", "MKT", "100"], ["BUY", "SNAP", "MKT", None, 100],
+        ("BUY", ["SNAP", "MKT", "100"], [OrderType.BUY, "SNAP", ActionType.MARKET, None, 100],
          None),
-        ("SELL", ["SNAP", "MKT", "100"], ["SELL", "SNAP", "MKT", None, 100],
+        ("SELL", ["SNAP", "MKT", "100"], [OrderType.SELL, "SNAP", ActionType.MARKET, None, 100],
          None),
         # Ошибка: Цена должна начинаться с '$'.
-        ("BUY", ["SNAP", "LMT", "30", "100"], ["BUY", "SNAP", "LMT", 30, 100],
+        ("BUY", ["SNAP", "LMT", "30", "100"], [OrderType.BUY, "SNAP", ActionType.LIMIT, 30, 100],
          "Цена должна начинаться с '$'."),
         # Ошибка: Для LMT заявки требуются: Продажа/Покупка, LMT, Цена, Кол-во
-        ("BUY", ["SNAP", "LMT", "$30"], ["BUY", "SNAP", "LMT", 30, 100],
+        ("BUY", ["SNAP", "LMT", "$30"], [OrderType.BUY, "SNAP", ActionType.LIMIT, 30, 100],
          "Для LMT заявки требуются: Продажа/Покупка, LMT, Цена, Кол-во"),
         # Ошибка: Для MKT заявки требуются: Продажа/Покупка, MKT, Кол-во
-        ("BUY", ["SNAP", "MKT"], ["BUY", "SNAP", "MKT", 30, 100],
+        ("BUY", ["SNAP", "MKT"], [OrderType.BUY, "SNAP", ActionType.MARKET, 30, 100],
          "Для MKT заявки требуются: Продажа/Покупка, MKT, Кол-во"),
         # Ошибка: Указанного вида заявки не существует.
-        ("BUY", ["SNAP", "EURO"], ["BUY", "SNAP", "MKT", 30, 100],
+        ("BUY", ["SNAP", "EURO"], [OrderType.BUY, "SNAP", ActionType.MARKET, 30, 100],
          "Указанного вида заявки не существует."),
-        ("BUY", ["snap", "lmt", "$30", "100"], ["BUY", "SNAP", "LMT", 30, 100],
+        ("BUY", ["snap", "lmt", "$30", "100"], [OrderType.BUY, "SNAP", ActionType.LIMIT, 30, 100],
          "Указанного вида заявки не существует."),
         # Ошибка: Указанное количество должно быть числом
-        ("BUY", ["SNAP", "LMT", "$30", "SNAP"], ["BUY", "SNAP", "LMT", 30, 100],
+        ("BUY", ["SNAP", "LMT", "$30", "SNAP"], [OrderType.BUY, "SNAP", ActionType.LIMIT, 30, 100],
          "Значение SNAP должно быть числом"),
-        ("BUY", ["SNAP", "LMT", "$SNAP", "100"], ["BUY", "SNAP", "LMT", 30, 100],
+        ("BUY", ["SNAP", "LMT", "$SNAP", "100"], [OrderType.BUY, "SNAP", ActionType.LIMIT, 30, 100],
          "Значение SNAP должно быть числом"),
     ],
     # ID для каждого теста
@@ -92,9 +92,9 @@ class TestViewOrdersCommand:
         assert "Список на данный момент пуст" in capsys.readouterr().out
 
     def test_view_orders_with_data(self, parser, exchange_mock, capsys):
-        order_1 = create_mock_order(action="BUY", quantity=100, filled_quantity=100)
-        order_2 = create_mock_order(action="SELL", quantity=100, filled_quantity=50, status="PARTIAL")
-        order_3 = create_mock_order(stock="FB", action_type="MKT", action="SELL", price=20.0, status="FILLED", filled_quantity=100, quantity=100)
+        order_1 = create_mock_order(action=OrderType.BUY, quantity=100, filled_quantity=100, status=OrderStatus.FILLED)
+        order_2 = create_mock_order(action=OrderType.SELL, quantity=100, filled_quantity=50, status=OrderStatus.PARTIAL)
+        order_3 = create_mock_order(stock="FB", action_type=ActionType.MARKET, action=OrderType.SELL, price=20.0, status=OrderStatus.FILLED, filled_quantity=100, quantity=100)
         exchange_mock.get_sorted_orders_list.return_value = [order_1, order_2, order_3]
         parser.view_command("VIEW", ["ORDERS"])
         capture = capsys.readouterr().out.strip().splitlines()
@@ -114,6 +114,14 @@ class TestQuoteCommand:
 
         parser.quote_command("QUOTE", ["SNAP"])
         assert "SNAP BID: $30.0 ASK: $31.0 LAST: $32.0" in capsys.readouterr().out
+
+    def test_get_quote_empty_book(self):
+        """Тест проверяет поведение системы, когда в стакане нет заявок"""
+        book = OrderBook("SNAP")
+        bid, ask, last = book.get_quote()
+        assert bid is None
+        assert ask is None
+        assert last is None
 
 class TestRunOut:
     def test_run_quit(self, parser, capsys):

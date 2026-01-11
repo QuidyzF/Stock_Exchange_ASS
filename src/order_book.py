@@ -1,4 +1,4 @@
-from src.order import Order
+from src.order import Order, ActionType, OrderType
 
 
 class OrderBook:
@@ -17,10 +17,8 @@ class OrderBook:
 
     def get_quote(self):
         self._sort_books()
-        # Запрашиваем лучшую заявку на покупку
-        best_bid = self.bids[0].price if self.bids[0].price else None
-        # Запрашиваем лучшую заявку на продажу
-        best_ask = self.asks[0].price if self.asks[0].price else None
+        best_bid = self.bids[0].price if self.bids else None
+        best_ask = self.asks[0].price if self.asks else None
         # Возвращаем данные - [покупка, продажа, последняя цена]
         return best_bid, best_ask, self.last_trade_price
 
@@ -31,17 +29,17 @@ class OrderBook:
             if quantity_to_close_order <= 0:
                 break
 
-            if counter_order.action_type == 'LMT' and not price_check(new_order, counter_order):
-                if new_order.action_type == 'LMT':
+            if counter_order.action_type == ActionType.LIMIT and not price_check(new_order, counter_order):
+                if new_order.action_type == ActionType.LIMIT:
                     break
 
             filling_quantity_in_this_action = min(quantity_to_close_order, counter_order.get_quantity())
             if filling_quantity_in_this_action <= 0:
                 continue
 
-            if counter_order.action_type == 'LMT':
+            if counter_order.action_type == ActionType.LIMIT:
                 trade_price = counter_order.price
-            elif new_order.action_type == 'LMT':
+            elif new_order.action_type == ActionType.LIMIT:
                 trade_price = new_order.price
             else:
                 trade_price = self.last_trade_price or 0
@@ -57,9 +55,12 @@ class OrderBook:
             self.last_trade_price = trade_price
             quantity_to_close_order = new_order.get_quantity()
 
+            if counter_order.get_quantity() == 0:
+                counter_orders.remove(counter_order)
+
     def process_order(self, order):
         """Обработка заявки и обновление статуса"""
-        if order.action == 'BUY':
+        if order.action == OrderType.BUY:
             order_book = self.asks
             price_check = lambda new_order, match_order: new_order.price >= match_order.price
             remaining_book = self.bids
